@@ -191,7 +191,23 @@ function formatTime(seconds: number) {
   return `${mins}:${secs}`;
 }
 
-function normalizeSearch(value: string) {
+/**
+ * Accepts anything, because it is mapped over an alias list.
+ *
+ * `filteredChapters` builds six aliases per chapter and maps this over all of
+ * them. Typed as `string`, this threw on the first absent field — a fixture
+ * without `name_complex` reached the client as undefined, `.toLowerCase()`
+ * threw inside the map, and because the throw happened during render the whole
+ * board was replaced by "a client-side exception". Every e2e project failed,
+ * and the visible symptom was an empty page rather than a missing name.
+ *
+ * The routes now supply a fallback, so this should never see a non-string
+ * again. It stays tolerant anyway: one missing field out of six should degrade
+ * that chapter's searchability, not take the app down.
+ */
+function normalizeSearch(value: string | null | undefined) {
+  if (typeof value !== "string") return "";
+
   return value
     .toLowerCase()
     .normalize("NFKD")

@@ -16,7 +16,10 @@ function toSurahSummary(chapter: Chapter) {
   return {
     id: chapter.id,
     nameSimple: chapter.name_simple,
-    nameComplex: chapter.name_complex,
+    // Falls back like translatedName beside it. A complex name is a display
+    // nicety; the client types it as a string and builds search aliases from
+    // it, so an absent one must not arrive as undefined.
+    nameComplex: chapter.name_complex ?? chapter.name_simple,
     nameArabic: chapter.name_arabic,
     translatedName: chapter.translated_name?.name ?? "",
     versesCount: chapter.verses_count,

@@ -25,18 +25,32 @@ type MockChapter = {
   verses_count: number;
   revelation_place: string;
   translated_name: { language_name: string; name: string };
+  /*
+   * Required, not optional, and this is the point of the field being here.
+   *
+   * The real /chapters response always carries name_complex. These fixtures
+   * omitted it, so under QF_MOCK nine chapters reached the client with
+   * nameComplex undefined — and the answer-search alias list ran
+   * toLowerCase() over it and took the whole app down with "a client-side
+   * exception". Every e2e project failed on it.
+   *
+   * A fixture that does not match the shape of what it stands in for is worse
+   * than no fixture: it tests a contract nobody serves. Typing it as required
+   * is what stops that happening again.
+   */
+  name_complex: string;
 };
 
 const MOCK_CHAPTERS: MockChapter[] = [
-  { id: 1, name_simple: "Al-Fatihah", name_arabic: "الفاتحة", verses_count: 7, revelation_place: "makkah", translated_name: { language_name: "english", name: "The Opener" } },
-  { id: 2, name_simple: "Al-Baqarah", name_arabic: "البقرة", verses_count: 286, revelation_place: "madinah", translated_name: { language_name: "english", name: "The Cow" } },
-  { id: 36, name_simple: "Ya-Sin", name_arabic: "يس", verses_count: 83, revelation_place: "makkah", translated_name: { language_name: "english", name: "Ya Sin" } },
-  { id: 55, name_simple: "Ar-Rahman", name_arabic: "الرحمن", verses_count: 78, revelation_place: "madinah", translated_name: { language_name: "english", name: "The Most Merciful" } },
-  { id: 67, name_simple: "Al-Mulk", name_arabic: "الملك", verses_count: 30, revelation_place: "makkah", translated_name: { language_name: "english", name: "The Sovereignty" } },
-  { id: 108, name_simple: "Al-Kawthar", name_arabic: "الكوثر", verses_count: 3, revelation_place: "makkah", translated_name: { language_name: "english", name: "The Abundance" } },
-  { id: 112, name_simple: "Al-Ikhlas", name_arabic: "الإخلاص", verses_count: 4, revelation_place: "makkah", translated_name: { language_name: "english", name: "The Sincerity" } },
-  { id: 113, name_simple: "Al-Falaq", name_arabic: "الفلق", verses_count: 5, revelation_place: "makkah", translated_name: { language_name: "english", name: "The Daybreak" } },
-  { id: 114, name_simple: "An-Nas", name_arabic: "الناس", verses_count: 6, revelation_place: "makkah", translated_name: { language_name: "english", name: "Mankind" } },
+  { id: 1, name_simple: "Al-Fatihah", name_complex: "Al-Fatihah", name_arabic: "الفاتحة", verses_count: 7, revelation_place: "makkah", translated_name: { language_name: "english", name: "The Opener" } },
+  { id: 2, name_simple: "Al-Baqarah", name_complex: "Al-Baqarah", name_arabic: "البقرة", verses_count: 286, revelation_place: "madinah", translated_name: { language_name: "english", name: "The Cow" } },
+  { id: 36, name_simple: "Ya-Sin", name_complex: "Ya-Sin", name_arabic: "يس", verses_count: 83, revelation_place: "makkah", translated_name: { language_name: "english", name: "Ya Sin" } },
+  { id: 55, name_simple: "Ar-Rahman", name_complex: "Ar-Rahman", name_arabic: "الرحمن", verses_count: 78, revelation_place: "madinah", translated_name: { language_name: "english", name: "The Most Merciful" } },
+  { id: 67, name_simple: "Al-Mulk", name_complex: "Al-Mulk", name_arabic: "الملك", verses_count: 30, revelation_place: "makkah", translated_name: { language_name: "english", name: "The Sovereignty" } },
+  { id: 108, name_simple: "Al-Kawthar", name_complex: "Al-Kawthar", name_arabic: "الكوثر", verses_count: 3, revelation_place: "makkah", translated_name: { language_name: "english", name: "The Abundance" } },
+  { id: 112, name_simple: "Al-Ikhlas", name_complex: "Al-Ikhlas", name_arabic: "الإخلاص", verses_count: 4, revelation_place: "makkah", translated_name: { language_name: "english", name: "The Sincerity" } },
+  { id: 113, name_simple: "Al-Falaq", name_complex: "Al-Falaq", name_arabic: "الفلق", verses_count: 5, revelation_place: "makkah", translated_name: { language_name: "english", name: "The Daybreak" } },
+  { id: 114, name_simple: "An-Nas", name_complex: "An-Nas", name_arabic: "الناس", verses_count: 6, revelation_place: "makkah", translated_name: { language_name: "english", name: "Mankind" } },
 ];
 
 const MOCK_RECITERS = [

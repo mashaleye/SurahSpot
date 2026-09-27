@@ -656,7 +656,7 @@ export function LearningHeroPanel({
   return (
     <div className="learning-continue">
       <div className="learning-continue-head">
-        <h2>Continue Reading</h2>
+        <h2>Last Read</h2>
         <div className="learning-continue-head-actions">
           <button
             type="button"

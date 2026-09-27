@@ -21,7 +21,7 @@ export function SiteFooter() {
           <Link className="footer-lockup" href="/" aria-label="SurahSpot home">
             <BrandLockup />
           </Link>
-          <h2>Recall. Estimate. Learn.</h2>
+          <h2>Listen. Learn. Remember.</h2>
           <p>
             Practice a little at a time&mdash;listen, recall, and build stronger
             familiarity with the Surahs you know.

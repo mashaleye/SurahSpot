@@ -1,0 +1,215 @@
+# Fires the reminder dispatch endpoint on a schedule.
+#
+# Without something calling it, /api/notifications/dispatch is never invoked
+# and no reminder is ever delivered, however many readers have subscribed. The
+# endpoint does all the work — deciding whose local slot has opened, sending,
+# pruning dead subscriptions — so this workflow only has to poke it reliably
+# and make a failure visible.
+#
+# WHY HOURLY
+#
+# Delivery is keyed by slot rather than by wall-clock time, and the send is
+# recorded per category in `lastSent`, so a run that fires twice in one slot
+# sends nothing the second time. Extra runs are therefore free, and they only
+# pick up readers whose local slot has just opened in another time zone. A
+# missed run is recovered by the next one instead of being lost.
+#
+# That idempotence is what makes a cron this coarse acceptable — see
+# CATEGORY_SLOTS in lib/notifications/schedule.ts for the rhythm itself.
+#
+# KNOWN LIMITATION, worth understanding before relying on it
+#
+# GitHub's scheduled workflows are best-effort, not guaranteed:
+#
+#   - Runs are queued and can be delayed, sometimes by tens of minutes. The
+#     slot keying above absorbs that.
+#   - GitHub DISABLES scheduled workflows on a repository with no commit
+#     activity for 60 days. On a finished project that is the realistic way
+#     reminders stop: silently, two months after the last push. GitHub emails
+#     the repo owner, and the workflow can be re-enabled from the Actions tab.
+#
+# If reminders ever become something readers genuinely depend on, move this to
+# a scheduler with a delivery guarantee — Upstash QStash is already adjacent
+# to the Redis instance, and an external cron service works too. This workflow
+# is the right amount of machinery for now, not forever.
+
+name: Dispatch reminders
+
+on:
+  schedule:
+    # Minute 17, not 0. Enormous numbers of workflows are scheduled on the
+    # hour, and GitHub's queue is most congested exactly then, so an off-peak
+    # minute measurably reduces the delay.
+    - cron: "17 * * * *"
+
+  # Lets a run be fired by hand, which is how the end-to-end test is done
+  # without waiting up to an hour for the next tick.
+  workflow_dispatch:
+    inputs:
+      origin:
+        description: "Origin to dispatch against (defaults to the production site)"
+        required: false
+        type: string
+
+# Never run two dispatches at once. They would be harmless — the slot keying
+# makes a double send a no-op — but overlapping runs make the logs much harder
+# to read when something is actually wrong. In-flight runs are not cancelled:
+# a dispatch that is midway through sending should finish.
+concurrency:
+  group: dispatch-reminders
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    name: POST /api/notifications/dispatch
+    runs-on: ubuntu-latest
+
+    # Generous enough for a large subscriber list, short enough that a hung
+    # request cannot occupy a runner until the next tick.
+    timeout-minutes: 10
+
+    steps:
+      - name: Dispatch
+        env:
+          # Read from the environment rather than interpolated into the command
+          # line, so the value cannot end up in a process listing or in an
+          # error message echoing the failed command.
+          DISPATCH_SECRET: ${{ secrets.NOTIFICATIONS_DISPATCH_SECRET }}
+          ORIGIN: ${{ inputs.origin || vars.SITE_ORIGIN || 'https://surahspot.com' }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${DISPATCH_SECRET}" ]; then
+            echo "::error::NOTIFICATIONS_DISPATCH_SECRET is not set as a repository secret."
+            echo "The endpoint refuses to run without it rather than letting anyone"
+            echo "push a notification to every subscriber, so this workflow cannot"
+            echo "work until the secret exists. Add it under"
+            echo "Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+          echo "Dispatching against ${ORIGIN}"
+
+          # Retries are driven here rather than by curl's --retry, because
+          # --retry treats every 5xx as transient and this endpoint's 503 is
+          # not: it means the VAPID keys or the dispatch secret are missing,
+          # which no amount of waiting fixes. Left to curl, a misconfigured
+          # deployment spent 30 seconds emitting four identical errors above
+          # the message explaining the actual cause — the retry actively buried
+          # the diagnosis it was meant to survive.
+          #
+          # So only genuinely retryable conditions are retried: a connection
+          # that never completed, a rate limit, or the 5xx codes a proxy emits
+          # under load.
+          attempt=1
+          max_attempts=3
+          http_status=""
+
+          while : ; do
+            # Cleared every attempt. curl writes nothing when the connection
+            # never completes, so without this the body from a previous attempt
+            # is still on disk and gets reported as though it belonged to this
+            # one — a connection failure printed an earlier attempt's 401 body,
+            # which points the reader at entirely the wrong cause.
+            rm -f response.json
+
+            # --fail-with-body keeps the response body on an error status, so a
+            # failure reports the API's own message and not just a number.
+            http_status=$(
+              curl --silent --show-error --fail-with-body --max-time 120 \
+                   --write-out '%{http_code}' --output response.json \
+                   --request POST "${ORIGIN}/api/notifications/dispatch" \
+                   --header "Authorization: Bearer ${DISPATCH_SECRET}" \
+                   --header "Content-Length: 0" 2>/dev/null
+            ) || true
+
+            case "${http_status}" in
+              ""|000|429|500|502|504) retryable=yes ;;
+              *)                      retryable=no  ;;
+            esac
+
+            if [ "${retryable}" = "no" ] || [ "${attempt}" -ge "${max_attempts}" ]; then
+              break
+            fi
+
+            echo "Attempt ${attempt}: HTTP ${http_status:-no response} — retrying in 10s"
+            attempt=$((attempt + 1))
+            sleep 10
+          done
+
+          echo "HTTP ${http_status:-no response}"
+          echo "--- response ---"
+          cat response.json 2>/dev/null || echo "(no response body)"
+          echo
+
+          case "${http_status}" in
+            2??)
+              ;;
+            401)
+              echo "::error::Dispatch rejected the credentials (401). The repository"
+              echo "secret and the NOTIFICATIONS_DISPATCH_SECRET Fly secret have diverged."
+              exit 1
+              ;;
+            503)
+              echo "::error::Dispatch is unavailable (503). Usually the VAPID keys or the"
+              echo "dispatch secret are missing on the server: notifications are only"
+              echo "enabled when VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY are both set."
+              exit 1
+              ;;
+            *)
+              echo "::error::Dispatch failed with HTTP ${http_status:-no response}."
+              echo "A single failure is recovered by the next hourly run, because"
+              echo "delivery is keyed by slot. Repeated failures are not."
+              exit 1
+              ;;
+          esac
+
+          # Surface the run summary in the job's own log, so the Actions history
+          # is a usable record of what was delivered without opening the app's
+          # logs. {considered, sent, skipped, pruned, failed}
+          python3 - <<'PY'
+          import json, os, pathlib
+
+          try:
+              data = json.loads(pathlib.Path("response.json").read_text())
+          except Exception as error:               # noqa: BLE001
+              print(f"::warning::Could not parse the dispatch response: {error}")
+              raise SystemExit(0)
+
+          fields = ["considered", "sent", "skipped", "pruned", "failed"]
+          line = "  ".join(f"{name}={data.get(name, '?')}" for name in fields)
+          print(line)
+
+          summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary:
+              with open(summary, "a", encoding="utf-8") as handle:
+                  handle.write("### Reminder dispatch\n\n")
+                  handle.write("| " + " | ".join(fields) + " |\n")
+                  handle.write("|" + "---|" * len(fields) + "\n")
+                  handle.write("| " + " | ".join(str(data.get(f, "?")) for f in fields) + " |\n")
+
+          # A run that looked at subscribers and sent nothing is a successful
+          # HTTP call sitting on top of a broken delivery pipeline. Flag it,
+          # rather than letting a green tick imply reminders went out.
+          #
+          # The condition is "sent == 0", not "failed == considered". `failed`
+          # counts individual send attempts and each subscription has one per
+          # category whose slot is open, so it routinely exceeds `considered` —
+          # one subscription reported considered=1, failed=2, and a comparison
+          # between the two never fired at all.
+          #
+          # sent == 0 with failures present is unambiguous, and a quiet slot
+          # (nothing due yet) is correctly excluded because it has no failures.
+          considered = data.get("considered")
+          sent = data.get("sent")
+          failed = data.get("failed")
+
+          if all(isinstance(value, int) for value in (considered, sent, failed)):
+              if considered > 0 and sent == 0 and failed > 0:
+                  print(
+                      f"::warning::Considered {considered} subscription(s) and delivered "
+                      f"none ({failed} failed send attempt(s)). Reminders are not reaching "
+                      "anyone — check the VAPID keypair matches the one browsers subscribed "
+                      "with, since rotating it invalidates every existing subscription."
+                  )
+          PY

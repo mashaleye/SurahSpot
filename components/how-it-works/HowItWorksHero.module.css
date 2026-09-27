@@ -1,0 +1,683 @@
+.section {
+  --surface: #07100c;
+  --surface-soft: #0a1410;
+  --foreground: #f2f3ed;
+  --muted: #adb8b1;
+  --green: #58d5a0;
+  --green-deep: #168e67;
+  --line: rgba(231, 239, 233, 0.12);
+
+  width: 100%;
+  overflow: clip;
+
+  color: var(--foreground);
+  background:
+    radial-gradient(
+      circle at 70% 18%,
+      rgba(42, 112, 82, 0.1),
+      transparent 34rem
+    ),
+    var(--surface);
+}
+
+
+/* =========================================================
+   HERO LAYOUT
+   ========================================================= */
+
+.hero {
+  position: relative;
+
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.08fr)
+    minmax(360px, 0.92fr);
+
+  min-height: clamp(650px, 75vh, 880px);
+
+  border-bottom: 1px solid var(--line);
+}
+
+
+/* =========================================================
+   COPY
+   ========================================================= */
+
+.content {
+  position: relative;
+  z-index: 5;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  padding:
+    clamp(6rem, 10vw, 10rem)
+    clamp(2rem, 5.6vw, 7rem)
+    clamp(5rem, 8vw, 8rem)
+    max(2rem, calc((100vw - 1440px) / 2));
+}
+
+.eyebrow {
+  margin: 0 0 1.8rem;
+
+  color: var(--green);
+
+  font-size: 0.74rem;
+  font-weight: 800;
+
+  line-height: 1;
+  letter-spacing: 0.09em;
+}
+
+.title {
+  display: flex;
+  flex-direction: column;
+
+  max-width: 850px;
+
+  margin: 0;
+
+  line-height: 0.88;
+  letter-spacing: -0.062em;
+}
+
+.titleSans {
+  position: relative;
+  z-index: 1;
+
+  display: block;
+
+  color: var(--foreground);
+
+  font-size: clamp(
+    4.1rem,
+    6.6vw,
+    8.5rem
+  );
+
+  font-weight: 850;
+  line-height: 0.87;
+}
+
+.titleSerif {
+  position: relative;
+  z-index: 1;
+
+  display: block;
+
+  margin-top: 0.12em;
+
+  color: var(--green);
+
+  font-family:
+    var(--font-editorial),
+    Georgia,
+    "Times New Roman",
+    serif;
+
+  font-size: clamp(
+    4rem,
+    6.4vw,
+    8.2rem
+  );
+
+  font-style: italic;
+  font-weight: 500;
+
+  line-height: 0.86;
+  letter-spacing: -0.055em;
+}
+
+.description {
+  max-width: 760px;
+
+  margin:
+    clamp(2rem, 3.4vw, 3.4rem)
+    0
+    0;
+
+  color: #bcc7c1;
+
+  font-size: clamp(
+    1rem,
+    1.28vw,
+    1.3rem
+  );
+
+  line-height: 1.65;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 1.75rem;
+
+  margin-top: 2rem;
+}
+
+.primaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 50px;
+
+  padding: 0.9rem 1.45rem;
+
+  border-radius: 0.7rem;
+
+  color: #07100c;
+  background: var(--green);
+
+  font-size: 0.96rem;
+  font-weight: 800;
+
+  text-decoration: none;
+
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.primaryButton:hover {
+  transform: translateY(-2px);
+
+  background: #6ee2b1;
+
+  box-shadow:
+    0 10px 35px
+    rgba(45, 206, 145, 0.15);
+}
+
+.primaryButton:active {
+  transform: translateY(0);
+}
+
+.secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+
+  color: #d7dfda;
+
+  font-size: 0.96rem;
+  font-weight: 750;
+
+  text-decoration: none;
+
+  transition:
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.secondaryButton:hover {
+  color: var(--green);
+}
+
+.arrow {
+  display: inline-block;
+
+  transition:
+    transform 180ms ease;
+}
+
+.secondaryButton:hover .arrow {
+  transform: translateY(4px);
+}
+
+
+/* =========================================================
+   QUR'AN IMAGE
+   ========================================================= */
+
+.media {
+  position: relative;
+
+  min-width: 0;
+  overflow: hidden;
+
+  isolation: isolate;
+
+  /*
+   * This makes the picture subtly disappear beneath the text
+   * instead of creating an obvious rectangular split.
+   */
+  -webkit-mask-image:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 0, 0, 0.2) 5%,
+      #000 18%,
+      #000 100%
+    );
+
+  mask-image:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 0, 0, 0.2) 5%,
+      #000 18%,
+      #000 100%
+    );
+}
+
+.mediaInner {
+  position: absolute;
+
+  /*
+   * Overscan the image so moving it up/down during
+   * parallax never exposes an empty edge.
+   */
+  inset: -48px -32px;
+
+  overflow: hidden;
+
+  transform:
+    translate3d(
+      0,
+      var(--parallax-y, 0px),
+      0
+    );
+
+  will-change: transform;
+}
+
+.image {
+  object-fit: cover;
+
+  /*
+   * Bias toward the center/right of the supplied Qur'an photo.
+   */
+  object-position: 53% 50%;
+
+  /*
+   * Slight enlargement allows the edges to remain soft
+   * without making the actual photograph blurry.
+   */
+  transform: scale(1.065);
+
+  filter:
+    saturate(0.83)
+    contrast(1.04)
+    brightness(0.7);
+}
+
+
+/* Slight cinematic color treatment */
+
+.imageTone {
+  position: absolute;
+  inset: 0;
+
+  z-index: 2;
+  pointer-events: none;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(2, 9, 6, 0.12),
+      rgba(2, 9, 6, 0.08) 45%,
+      rgba(2, 9, 6, 0.46)
+    ),
+    linear-gradient(
+      90deg,
+      rgba(3, 11, 8, 0.68) 0%,
+      rgba(3, 11, 8, 0.16) 31%,
+      rgba(3, 11, 8, 0.03) 64%,
+      rgba(3, 11, 8, 0.21) 100%
+    );
+}
+
+
+/* Dark vignette around all four edges */
+
+.vignette {
+  position: absolute;
+  inset: 0;
+
+  z-index: 3;
+  pointer-events: none;
+
+  box-shadow:
+    inset 0 0 110px
+      rgba(2, 8, 5, 0.7),
+    inset 0 0 45px
+      rgba(2, 8, 5, 0.28);
+
+  background:
+    radial-gradient(
+      ellipse at center,
+      transparent 42%,
+      rgba(3, 10, 7, 0.13) 64%,
+      rgba(3, 10, 7, 0.66) 100%
+    );
+}
+
+
+/*
+ * This gives the sides that slightly blurry/fogged look.
+ * backdrop-filter affects only the edge areas rather than
+ * blurring the entire Qur'an photograph.
+ */
+
+.edgeFade {
+  position: absolute;
+  inset: 0;
+
+  z-index: 4;
+  pointer-events: none;
+
+  background:
+    linear-gradient(
+      90deg,
+      rgba(7, 16, 12, 0.92) 0%,
+      rgba(7, 16, 12, 0.58) 7%,
+      transparent 22%,
+      transparent 80%,
+      rgba(7, 16, 12, 0.22) 92%,
+      rgba(7, 16, 12, 0.55) 100%
+    );
+
+  /*
+   * The very small blur keeps it tasteful.
+   */
+  backdrop-filter: blur(1.8px);
+  -webkit-backdrop-filter: blur(1.8px);
+
+  /*
+   * Only apply the blur near the sides.
+   */
+  -webkit-mask-image:
+    linear-gradient(
+      90deg,
+      #000 0%,
+      #000 7%,
+      transparent 25%,
+      transparent 76%,
+      #000 95%,
+      #000 100%
+    );
+
+  mask-image:
+    linear-gradient(
+      90deg,
+      #000 0%,
+      #000 7%,
+      transparent 25%,
+      transparent 76%,
+      #000 95%,
+      #000 100%
+    );
+}
+
+
+/* =========================================================
+   STEPS
+   ========================================================= */
+
+.steps {
+  display: grid;
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+
+  max-width: 1440px;
+
+  margin: 0 auto;
+
+  border-bottom: 1px solid var(--line);
+}
+
+.step {
+  min-height: 190px;
+
+  padding:
+    2.3rem
+    clamp(1.4rem, 2.4vw, 2.4rem)
+    2.6rem;
+
+  border-right:
+    1px solid var(--line);
+}
+
+.step:last-child {
+  border-right: 0;
+}
+
+.stepNumber {
+  display: block;
+
+  margin-bottom: 1.8rem;
+
+  color: var(--green);
+
+  font-size: 0.72rem;
+  font-weight: 850;
+
+  letter-spacing: 0.06em;
+}
+
+.stepTitle {
+  margin: 0 0 0.8rem;
+
+  color: var(--foreground);
+
+  font-size: clamp(
+    1.1rem,
+    1.45vw,
+    1.45rem
+  );
+
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.stepBody {
+  max-width: 310px;
+
+  margin: 0;
+
+  color: #a9b8af;
+
+  font-size: 0.91rem;
+  line-height: 1.55;
+}
+
+
+/* =========================================================
+   TABLET
+   ========================================================= */
+
+@media (max-width: 1050px) {
+  .hero {
+    grid-template-columns:
+      minmax(0, 1.05fr)
+      minmax(320px, 0.95fr);
+  }
+
+  .content {
+    padding-right: 2rem;
+  }
+
+  .steps {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .step:nth-child(2) {
+    border-right: 0;
+  }
+
+  .step:nth-child(-n + 2) {
+    border-bottom:
+      1px solid var(--line);
+  }
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 760px) {
+  .hero {
+    display: flex;
+    flex-direction: column;
+
+    min-height: auto;
+  }
+
+  .content {
+    order: 1;
+
+    padding:
+      7.5rem
+      1.25rem
+      3.2rem;
+  }
+
+  .eyebrow {
+    margin-bottom: 1.35rem;
+  }
+
+  .title {
+    line-height: 0.92;
+  }
+
+  .titleSans {
+    font-size:
+      clamp(3.15rem, 15vw, 5rem);
+
+    line-height: 0.9;
+  }
+
+  .titleSerif {
+    margin-top: 0.12em;
+
+    font-size:
+      clamp(3.05rem, 14vw, 4.8rem);
+
+    line-height: 0.9;
+  }
+
+  .description {
+    margin-top: 2rem;
+
+    font-size: 1rem;
+  }
+
+  .actions {
+    flex-wrap: wrap;
+
+    gap:
+      1rem
+      1.5rem;
+
+    margin-top: 1.7rem;
+  }
+
+  /*
+   * The photograph becomes a cinematic band beneath
+   * the hero copy rather than squeezing text horizontally.
+   */
+  .media {
+    order: 2;
+
+    height: min(63vw, 430px);
+    min-height: 290px;
+
+    -webkit-mask-image:
+      linear-gradient(
+        180deg,
+        transparent 0%,
+        #000 15%,
+        #000 86%,
+        transparent 100%
+      );
+
+    mask-image:
+      linear-gradient(
+        180deg,
+        transparent 0%,
+        #000 15%,
+        #000 86%,
+        transparent 100%
+      );
+  }
+
+  .mediaInner {
+    inset: -42px -24px;
+  }
+
+  .image {
+    object-position: 51% 49%;
+
+    transform: scale(1.09);
+  }
+
+  .imageTone {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(7, 16, 12, 0.9) 0%,
+        rgba(7, 16, 12, 0.08) 25%,
+        rgba(7, 16, 12, 0.08) 72%,
+        rgba(7, 16, 12, 0.82) 100%
+      ),
+      rgba(3, 11, 8, 0.08);
+  }
+
+  .steps {
+    grid-template-columns: 1fr;
+
+    padding: 0 1.25rem;
+  }
+
+  .step {
+    min-height: auto;
+
+    padding:
+      2rem
+      0
+      2.2rem;
+
+    border-right: 0;
+    border-bottom:
+      1px solid var(--line);
+  }
+
+  .step:nth-child(-n + 2) {
+    border-bottom:
+      1px solid var(--line);
+  }
+
+  .step:last-child {
+    border-bottom: 0;
+  }
+
+  .stepNumber {
+    margin-bottom: 1.25rem;
+  }
+
+  .stepBody {
+    max-width: 500px;
+  }
+}
+
+
+/* =========================================================
+   REDUCED MOTION / ACCESSIBILITY
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .mediaInner {
+    transform: none !important;
+  }
+
+  .primaryButton,
+  .secondaryButton,
+  .arrow {
+    transition: none;
+  }
+}

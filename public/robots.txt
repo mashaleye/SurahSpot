@@ -1,0 +1,6 @@
+# Public pages may be indexed. Gameplay/API endpoints are excluded from crawl.
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://surahspot.com/sitemap.xml

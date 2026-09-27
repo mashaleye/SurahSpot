@@ -1,0 +1,23 @@
+{
+  "id": "/",
+  "name": "SurahSpot",
+  "short_name": "SurahSpot",
+  "description": "Practice Surah recognition and Ayah-count recall in focused seven-round sessions.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#f5f3ec",
+  "theme_color": "#f5f3ec",
+  "categories": ["education", "games"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Play", "short_name": "Play", "url": "/", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "How it works", "short_name": "How it works", "url": "/how-it-works", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

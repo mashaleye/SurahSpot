@@ -1,0 +1,12 @@
+# Normalize to LF in the repository. Without this, Windows checkouts commit
+# CRLF and every file shows as wholly modified on another machine — and the
+# Dockerfile's `\` line continuations are parsed by Docker, which has
+# historically been fragile about a backslash followed by CR.
+* text=auto eol=lf
+
+# Binary, never touched.
+*.png binary
+*.jpg binary
+*.ttf binary
+*.woff2 binary
+*.ico binary

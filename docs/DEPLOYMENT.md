@@ -352,12 +352,33 @@ pins every reader to the old rules with no way to push a fix past it.
 
 ## Notifications
 
-Four kinds, on the reader's own clock in their own time zone: a dua every four
-hours, and once a day each a verse of the day, a recitation suggestion, and —
-only if they have not read yet — an evening streak reminder. Readers turn them
-on, and switch individual kinds off, inside the streak panel. Nothing is ever
-sent without that opt-in, and permission is requested on that tap rather than
-on page load, because a denial cannot be undone from script.
+Five kinds, on the reader's own clock in their own time zone. The day runs in
+four-hour slots, and the two small-hours slots (midnight and 04:00) are quiet:
+nothing is sent, and nothing queues up for later.
+
+| Kind | When | What it says, and where a tap goes |
+| --- | --- | --- |
+| Remembrance | Every active slot: 08, 12, 16, 20 | In turn, a Qur'anic dua (opens the reader at that Ayah), a dhikr fitted to the time of day (opens the matching routine on the Dhikr page), and one of the 99 Names (opens the Names page at that Name). |
+| Verse of the day | 08:00 slot | An Ayah with its translation; opens the reader at it. |
+| Game modes | 12:00 slot | One mode or variant a day, in turn; opens the game with those rules preselected. |
+| Reconnect | 16:00 slot | "Reconnect with · Surah X for a few minutes", naming the Surah the reader last left off in; opens the reader there, at their saved place. A device that has not read yet gets a suggested Surah instead. |
+| Streak | 20:00 slot | Only if they have not read today and have a streak to keep. |
+
+Readers turn them on, and switch individual kinds off, inside the streak
+panel. Nothing is ever sent without that opt-in, and permission is requested
+on that tap rather than on page load, because a denial cannot be undone from
+script.
+
+The dispatcher sends **at most one notification per subscriber per run**.
+Apple's push service keeps only one pending notification per app, so two sent
+together — the morning dua and the verse of the day at 08:17, say — arrived as
+one. Whatever is not sent stays due and goes out on the next hourly run,
+within the same four-hour slot. The once-a-day kinds go first; the
+remembrance, which comes round every slot, waits.
+
+For the afternoon nudge to name a Surah, the device reports the Surah number
+of the reader's last position whenever it changes — the number only, never
+the position within it, which stays on the device.
 
 Generate the keys:
 
@@ -419,16 +440,20 @@ summary, and distinguishes the failure modes rather than just going red:
 | 2xx with `sent: 0` and failures | delivery is broken — usually a rotated VAPID keypair |
 
 That last row is worth understanding: a 2xx means dispatch *ran*, not that
-anything arrived. `failed` counts individual send attempts, one per category
-whose slot is open, so it routinely exceeds `considered` — a single subscription
-can report `considered: 1, failed: 2`. Comparing the two is meaningless; `sent`
-is the number that says whether reminders reached anyone.
+anything arrived. `failed` counts individual send attempts, and a subscriber
+whose first due kind fails is tried on the next kind in the same run, so it
+can exceed `considered` — a single subscription can report `considered: 1,
+failed: 2`. Comparing the two is meaningless; `sent` is the number that says
+whether reminders reached anyone, and it is never more than `considered`,
+because a run sends each subscriber at most one notification.
 
-Hourly rather than four-hourly on purpose. Delivery is keyed by slot, not by
-time, so extra runs cost nothing and only pick up readers whose local slot has
-just opened in another time zone — and a missed run is recovered by the next
-one instead of being lost. Each run reports what it did:
-`{considered, sent, skipped, pruned, failed}`.
+Hourly rather than four-hourly on purpose, and now for two reasons. Delivery
+is keyed by slot, not by time, so extra runs cost nothing and only pick up
+readers whose local slot has just opened in another time zone — and a missed
+run is recovered by the next one instead of being lost. And because a run
+sends one notification per subscriber, the hourly rhythm is what spaces a
+slot's two kinds an hour apart instead of dropping one. Each run reports what
+it did: `{considered, sent, skipped, pruned, failed}`.
 
 Changing the rhythm is one table, `CATEGORY_SLOTS` in
 `lib/notifications/schedule.ts`. Setting any category to `"every"` fires it in

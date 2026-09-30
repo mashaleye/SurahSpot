@@ -2,15 +2,16 @@
  * When each kind of notification is due.
  *
  * The day is divided into six four-hour slots in the subscriber's own local
- * time. Every category is pinned to a slot — duas to all of them, the rest to
- * one each — so a reader gets a steady rhythm rather than a burst.
+ * time, of which the two small-hours slots are quiet. Every category is pinned
+ * to a slot — the remembrance to all the active ones, the rest to one each —
+ * so a reader gets a steady rhythm rather than a burst.
  *
  * Everything here is pure and works on an explicit `now`, so the cadence can
  * be tested across days, time zones and daylight-saving boundaries without
  * waiting for real time to pass.
  */
 
-export const NOTIFICATION_CATEGORIES = ["dua", "verse", "recitation", "streak"] as const;
+export const NOTIFICATION_CATEGORIES = ["dua", "verse", "recitation", "play", "streak"] as const;
 
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 
@@ -20,18 +21,38 @@ export const SLOT_HOURS = [0, 4, 8, 12, 16, 20] as const;
 export type SlotHour = (typeof SLOT_HOURS)[number];
 
 /**
+ * Slots in which nothing is sent, whatever is due.
+ *
+ * The dispatcher runs hourly at :17, so the first delivery in a slot is
+ * seventeen minutes past the hour it opens. That put the midnight slot's dua
+ * on a phone at 01:44 and would put the four o'clock slot's at 04:17 — the
+ * small hours for nearly everyone. Nothing is owed for a quiet slot, so
+ * nothing is queued up either: the day starts clean with the 08:00 slot.
+ */
+export const QUIET_SLOTS: readonly SlotHour[] = [0, 4];
+
+/** The slots that actually deliver, in order. */
+export const ACTIVE_SLOTS: readonly SlotHour[] = SLOT_HOURS.filter(
+  (slot) => !QUIET_SLOTS.includes(slot),
+);
+
+/**
  * Which slots each category fires in.
  *
- * `"every"` means all six — one per four-hour window. A number pins the
- * category to a single slot, which is what keeps the daily kinds from
- * arriving six times over. To put any category on the four-hour rhythm,
- * change its value here to `"every"`; nothing else needs to change.
+ * `"every"` means every active slot — one per four-hour window through the
+ * day. A number pins the category to a single slot, which is what keeps the
+ * daily kinds from arriving several times over. To put any category on the
+ * four-hour rhythm, change its value here to `"every"`; nothing else needs to
+ * change.
  */
 export const CATEGORY_SLOTS: Record<NotificationCategory, "every" | SlotHour> = {
-  // A dua for each part of the day.
+  // A remembrance for each part of the day: a Qur'anic dua, a dhikr or one of
+  // the 99 Names, in turn.
   dua: "every",
   // Mid-morning, when there is time to sit with it.
   verse: 8,
+  // Midday: a round of the game fits a break better than a reading does.
+  play: 12,
   // Late afternoon, a natural point to listen rather than read.
   recitation: 16,
   // Evening, late enough to mean something and early enough to act on.
@@ -44,6 +65,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   dua: true,
   verse: true,
   recitation: true,
+  play: true,
   streak: true,
 };
 
@@ -57,6 +79,8 @@ export type SubscriberSchedulingState = {
   lastReadDay?: string;
   /** Streak length as the client last reported it. */
   streak?: number;
+  /** The Surah the reader last left off in, so the recitation nudge can name it. */
+  lastReadChapterId?: number;
 };
 
 export type DueNotification = {
@@ -141,6 +165,7 @@ export function dueNotifications(
   if (!isValidTimeZone(state.timeZone)) return [];
 
   const slot = currentSlot(nowMs, state.timeZone);
+  if (QUIET_SLOTS.includes(slot.hour)) return [];
 
   return NOTIFICATION_CATEGORIES.filter((category) => {
     if (!state.prefs?.[category]) return false;
@@ -167,31 +192,36 @@ export function dueNotifications(
   }));
 }
 
+/** Days since the epoch, from the local day string, so no timezone maths. */
+function daysSinceEpoch(localDay: string): number {
+  const [year, month, day] = localDay.split("-").map(Number);
+  return Math.floor(Date.UTC(year, (month || 1) - 1, day || 1) / 86_400_000);
+}
+
 /**
- * A stable index into a content list for a given slot.
+ * The slot's ordinal position among the active slots, counted from the epoch.
  *
- * Derived from the date rather than stored, so every reader in a time zone
- * sees the same verse on the same day, and a dispatch that runs twice picks
- * the same one.
+ * Every rotation derives from this one number rather than from stored state,
+ * so every reader in a time zone sees the same item in the same slot, and a
+ * dispatch that runs twice picks the same one. Quiet slots are left out of the
+ * count, so a rotation never skips an item on their account.
  */
+export function slotPosition(localDay: string, slot: SlotHour): number {
+  const slotIndex = ACTIVE_SLOTS.indexOf(slot);
+  return daysSinceEpoch(localDay) * ACTIVE_SLOTS.length + (slotIndex < 0 ? 0 : slotIndex);
+}
+
+/** A stable index into a content list for a given slot. */
 export function contentIndex(localDay: string, slot: SlotHour, listLength: number): number {
   if (listLength <= 0) return 0;
-
-  // Days since the epoch, from the local day string, so no timezone maths.
-  const [year, month, day] = localDay.split("-").map(Number);
-  const days = Math.floor(Date.UTC(year, (month || 1) - 1, day || 1) / 86_400_000);
-
-  const slotIndex = SLOT_HOURS.indexOf(slot);
-  const position = days * SLOT_HOURS.length + (slotIndex < 0 ? 0 : slotIndex);
-
+  const position = slotPosition(localDay, slot);
   return ((position % listLength) + listLength) % listLength;
 }
 
 /** Same idea, but one step per day: the verse of the day holds all day. */
 export function dailyContentIndex(localDay: string, listLength: number): number {
   if (listLength <= 0) return 0;
-  const [year, month, day] = localDay.split("-").map(Number);
-  const days = Math.floor(Date.UTC(year, (month || 1) - 1, day || 1) / 86_400_000);
+  const days = daysSinceEpoch(localDay);
   return ((days % listLength) + listLength) % listLength;
 }
 

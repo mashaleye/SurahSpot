@@ -107,12 +107,16 @@ jobs:
 
       # Catches a standalone output that builds but cannot start — a missing
       # traced dependency, for instance, which `next build` reports as success.
-      # QF_MOCK is deliberately NOT set here: the fixture upstream is refused
-      # when NODE_ENV=production, and this step is checking that the production
-      # server starts and answers liveness, not that it can build a round.
+      # QF_MOCK is deliberately NOT set here: this step is checking that the
+      # production server starts and answers liveness, not that it can build a
+      # round. ALLOW_SINGLE_INSTANCE_STORE is set because the standalone server
+      # runs as a production build, and without a store URL or this
+      # acknowledgement the health check reports `degraded` with a 503 — the
+      # refusal doing its job, not the boot failing.
       - name: Verify the standalone server boots
         env:
           QF_MOCK: "0"
+          ALLOW_SINGLE_INSTANCE_STORE: "1"
           PORT: "3000"
           HOSTNAME: 127.0.0.1
         run: |

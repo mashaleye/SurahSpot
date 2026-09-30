@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  ACTIVE_SLOTS,
   CATEGORY_SLOTS,
   DEFAULT_NOTIFICATION_PREFS,
   NOTIFICATION_CATEGORIES,
+  QUIET_SLOTS,
   SLOT_HOURS,
   contentIndex,
   dailyContentIndex,
@@ -70,13 +72,34 @@ describe("notification slots", () => {
 });
 
 describe("what is due", () => {
-  it("sends a dua in every slot", () => {
+  it("sends a remembrance in every active slot", () => {
     expect(CATEGORY_SLOTS.dua).toBe("every");
 
-    for (const hour of SLOT_HOURS) {
+    for (const hour of ACTIVE_SLOTS) {
       const now = at("America/Los_Angeles", `2026-05-05T${String(hour).padStart(2, "0")}:05:00`);
       const due = dueNotifications(subscriber({ lastReadDay: "2026-05-05" }), now);
       expect(due.some((item) => item.category === "dua")).toBe(true);
+    }
+  });
+
+  it("sends nothing at all in the small hours", () => {
+    // The dispatcher's first delivery in a slot is :17 past the hour it
+    // opens, which for these two slots means 00:17 and 04:17.
+    expect(QUIET_SLOTS).toEqual([0, 4]);
+    expect(ACTIVE_SLOTS).toEqual([8, 12, 16, 20]);
+
+    for (const hour of QUIET_SLOTS) {
+      for (const minute of ["17", "59"]) {
+        const now = at("America/Los_Angeles", `2026-05-05T${String(hour).padStart(2, "0")}:${minute}:00`);
+        expect(dueNotifications(subscriber({ lastReadDay: "2026-05-04" }), now)).toEqual([]);
+      }
+    }
+  });
+
+  it("does not pin any daily kind to a quiet slot", () => {
+    for (const category of NOTIFICATION_CATEGORIES) {
+      const rule = CATEGORY_SLOTS[category];
+      if (rule !== "every") expect(QUIET_SLOTS).not.toContain(rule);
     }
   });
 
@@ -86,8 +109,15 @@ describe("what is due", () => {
       .map((item) => item.category);
 
     expect(categories).toContain("verse");
+    expect(categories).not.toContain("play");
     expect(categories).not.toContain("recitation");
     expect(categories).not.toContain("streak");
+
+    const midday = at("America/Los_Angeles", "2026-05-05T12:30:00");
+    const middayCategories = dueNotifications(subscriber({ lastReadDay: "2026-05-05" }), midday)
+      .map((item) => item.category);
+    expect(middayCategories).toContain("play");
+    expect(middayCategories).not.toContain("verse");
   });
 
   it("does not repeat a category within the same slot", () => {
@@ -147,7 +177,9 @@ describe("what is due", () => {
   });
 
   it("follows the reader's zone, so the same instant differs by location", () => {
-    // 16:30 in Los Angeles is 00:30 the next day in London.
+    // 16:30 in Los Angeles is 00:30 the next day in London — a quiet slot
+    // there, so London gets nothing at all while Los Angeles gets its
+    // afternoon nudge.
     const instant = at("America/Los_Angeles", "2026-05-05T16:30:00");
 
     const la = dueNotifications(subscriber({ lastReadDay: "2026-05-05" }), instant);
@@ -157,8 +189,19 @@ describe("what is due", () => {
     );
 
     expect(la.map((i) => i.category)).toContain("recitation");
-    expect(london.map((i) => i.category)).not.toContain("recitation");
-    expect(london[0]?.localDay).toBe("2026-05-06");
+    expect(london).toEqual([]);
+
+    // Eight hours later it is 08:30 in London and 00:30 in Los Angeles: the
+    // roles swap, and London's slot belongs to its own new day.
+    const later = instant + 8 * 60 * 60_000;
+    const laLater = dueNotifications(subscriber({ lastReadDay: "2026-05-05" }), later);
+    const londonLater = dueNotifications(
+      subscriber({ timeZone: "Europe/London", lastReadDay: "2026-05-05" }),
+      later,
+    );
+    expect(laLater).toEqual([]);
+    expect(londonLater.map((i) => i.category)).toContain("verse");
+    expect(londonLater[0]?.localDay).toBe("2026-05-06");
   });
 
   it("keeps slots aligned across a daylight-saving change", () => {
@@ -182,6 +225,14 @@ describe("content selection", () => {
     const morning = contentIndex("2026-05-05", 8, 30);
     const noon = contentIndex("2026-05-05", 12, 30);
     expect(noon).not.toBe(morning);
+  });
+
+  it("counts only active slots, so a quiet slot never costs the rotation an item", () => {
+    // Four active slots a day: the last slot of one day and the first of the
+    // next are consecutive positions.
+    const lastToday = contentIndex("2026-05-05", 20, 1000);
+    const firstTomorrow = contentIndex("2026-05-06", 8, 1000);
+    expect(firstTomorrow).toBe(lastToday + 1);
   });
 
   it("holds the verse of the day steady all day, then changes", () => {

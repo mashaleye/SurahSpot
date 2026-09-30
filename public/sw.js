@@ -44,6 +44,7 @@ const SHELL_ASSETS = [
   "/fonts/UthmanicHafs1Ver18.ttf",
   "/icon-192.png",
   "/icon-512.png",
+  "/badge-96.png",
 ];
 
 /* ==========================================================================
@@ -83,7 +84,7 @@ function isStaticAsset(pathname) {
     || pathname.startsWith("/images/")
     || pathname.startsWith("/pwa/")
     || pathname === "/manifest.webmanifest"
-    || /^\/(icon-|apple-touch-icon)/.test(pathname)
+    || /^\/(icon-|badge-|apple-touch-icon)/.test(pathname)
   );
 }
 
@@ -314,8 +315,12 @@ self.addEventListener("push", (event) => {
     // older one rather than stacking six duas in the tray.
     tag: payload.tag || payload.category || "surahspot",
     renotify: Boolean(payload.renotify),
+    // The icon is the logo tile. The badge is what Android draws in the
+    // status bar and beside the app name: a monochrome glyph on transparency,
+    // which the platform tints itself. A full-colour icon there renders as a
+    // grey blob. iOS ignores both and shows the installed app's own icon.
     icon: "/icon-192.png",
-    badge: "/icon-192.png",
+    badge: "/badge-96.png",
     lang: payload.lang || "en",
     dir: payload.dir || "auto",
     timestamp: Date.now(),

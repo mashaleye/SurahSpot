@@ -16132,3 +16132,27 @@ html[data-theme="dark"] .surah-page-action.is-primary { color: #1f2622; }
   .surah-index { grid-template-columns: 1fr; }
   .surah-index-arabic { font-size: 17px; }
 }
+
+/* =====================================================================
+   Notification landing spots
+   A reminder about one Name opens the page at that Name; a dhikr reminder
+   opens the routine it belongs to. The target gets the same brief emphasis
+   the reader gives a navigation target — a tint, not another box — and a
+   scroll margin so the sticky header does not cover it.
+   ===================================================================== */
+
+.name-card,
+.dhikr-resource-card {
+  scroll-margin-top: calc(var(--site-header-offset, 76px) + 16px);
+}
+
+.name-card.is-highlighted {
+  border-color: color-mix(in srgb, var(--green) 55%, var(--line));
+  background: color-mix(in srgb, var(--green) 6%, var(--card));
+  transition: border-color .5s ease, background-color .5s ease;
+}
+
+.dhikr-resource-card:target {
+  border-color: color-mix(in srgb, var(--green) 55%, var(--line));
+  background: color-mix(in srgb, var(--green) 6%, var(--card));
+}

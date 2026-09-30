@@ -8,6 +8,7 @@ import { isValidTimeZone, sanitizePrefs } from "@/lib/notifications/schedule";
 import {
   deleteSubscription,
   isPushSubscriptionShape,
+  sanitizeChapterId,
   saveSubscription,
   subscriptionId,
   updateSubscriptionState,
@@ -48,12 +49,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== "object") throw badRequest("Expected a JSON body.");
 
-    const { subscription, timeZone, prefs, lastReadDay, streak } = body as {
+    const { subscription, timeZone, prefs, lastReadDay, streak, lastReadChapterId } = body as {
       subscription?: unknown;
       timeZone?: unknown;
       prefs?: unknown;
       lastReadDay?: unknown;
       streak?: unknown;
+      lastReadChapterId?: unknown;
     };
 
     if (!isPushSubscriptionShape(subscription)) {
@@ -67,6 +69,7 @@ export async function POST(request: NextRequest) {
       prefs: prefs === undefined ? undefined : sanitizePrefs(prefs),
       lastReadDay: typeof lastReadDay === "string" ? lastReadDay : undefined,
       streak: typeof streak === "number" && Number.isFinite(streak) ? streak : undefined,
+      lastReadChapterId: sanitizeChapterId(lastReadChapterId),
     });
 
     return NextResponse.json(
@@ -96,12 +99,13 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== "object") throw badRequest("Expected a JSON body.");
 
-    const { endpoint, prefs, lastReadDay, streak, timeZone } = body as {
+    const { endpoint, prefs, lastReadDay, streak, timeZone, lastReadChapterId } = body as {
       endpoint?: unknown;
       prefs?: unknown;
       lastReadDay?: unknown;
       streak?: unknown;
       timeZone?: unknown;
+      lastReadChapterId?: unknown;
     };
 
     if (typeof endpoint !== "string" || !endpoint) throw badRequest("An endpoint is required.");
@@ -111,6 +115,7 @@ export async function PATCH(request: NextRequest) {
       lastReadDay: typeof lastReadDay === "string" ? lastReadDay : undefined,
       streak: typeof streak === "number" && Number.isFinite(streak) ? streak : undefined,
       timeZone: isValidTimeZone(timeZone) ? timeZone : undefined,
+      lastReadChapterId: sanitizeChapterId(lastReadChapterId),
     });
 
     // A device whose record has expired is not an error worth surfacing; the

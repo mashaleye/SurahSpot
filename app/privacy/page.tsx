@@ -84,14 +84,16 @@ export default function PrivacyPage() {
           <p>
             Only if you ask for them. Turning reminders on stores a push subscription for that
             browser: an endpoint URL supplied by your browser vendor&rsquo;s push service, the
-            keys needed to encrypt messages to it, your time zone, and two facts needed to
-            keep the streak reminder honest &mdash; the day you last read and your current
-            streak length.
+            keys needed to encrypt messages to it, your time zone, and three facts about your
+            reading &mdash; the day you last read and your current streak length, which keep
+            the streak reminder honest, and the number of the Surah you last left off in,
+            which the afternoon reminder names.
           </p>
           <p>
-            What you read is not sent. The reminder needs to know <em>whether</em> you read
-            today, not what. Turning reminders off deletes the record, and a subscription the
-            push service reports as dead is deleted automatically.
+            Where you are within that Surah is not sent, and neither is anything else you
+            read: the streak reminder needs to know <em>whether</em> you read today, and the
+            afternoon one which Surah to open. Turning reminders off deletes the record, and
+            a subscription the push service reports as dead is deleted automatically.
           </p>
 
           <h2>Who else is involved</h2>

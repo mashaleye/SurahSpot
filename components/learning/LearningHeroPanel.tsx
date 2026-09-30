@@ -576,21 +576,26 @@ export function LearningHeroPanel({
   );
 
   /*
-   * Keep the server's idea of the streak current.
+   * Keep the server's idea of the reader's state current.
    *
-   * Reading progress lives on the device and stays there; the evening streak
-   * reminder needs only two facts to be honest about whether it should fire
-   * at all — the last day read and the count — so only those are sent, and
-   * only when they change. Telling someone their streak is at risk when it
-   * is not is the fastest way to have reminders switched off for good.
+   * Reading progress lives on the device and stays there. The evening streak
+   * reminder needs two facts to be honest about whether it should fire at
+   * all — the last day read and the count — and the afternoon nudge needs
+   * one more, the Surah the reader left off in, so it can name it. Only
+   * those are sent, and only when they change: the Surah number changes when
+   * the reader moves to another Surah, not on every Ayah they scroll past.
+   * Telling someone their streak is at risk when it is not is the fastest
+   * way to have reminders switched off for good.
    */
   const lastDayRead = snapshot.days.length ? snapshot.days[snapshot.days.length - 1] : null;
+  const lastReadChapterId = snapshot.lastRead?.chapterId ?? null;
   useEffect(() => {
     void syncNotificationState({
       streak: snapshot.streak,
       lastReadDay: lastDayRead ?? undefined,
+      lastReadChapterId: lastReadChapterId ?? undefined,
     });
-  }, [lastDayRead, snapshot.streak]);
+  }, [lastDayRead, lastReadChapterId, snapshot.streak]);
 
   const streakDays = useMemo(() => {
     const today = localDayKey();
@@ -656,7 +661,7 @@ export function LearningHeroPanel({
   return (
     <div className="learning-continue">
       <div className="learning-continue-head">
-        <h2>Last Read</h2>
+        <h2>Continue Reading</h2>
         <div className="learning-continue-head-actions">
           <button
             type="button"
@@ -852,7 +857,11 @@ export function LearningHeroPanel({
           </div>
         ) : null}
 
-        <NotificationSettings streak={snapshot.streak} lastReadDay={lastDayRead} />
+        <NotificationSettings
+          streak={snapshot.streak}
+          lastReadDay={lastDayRead}
+          lastReadChapterId={lastReadChapterId}
+        />
       </LearningModal>
 
       <LearningModal

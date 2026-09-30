@@ -28,6 +28,16 @@ function isSupportedNamesLanguage(language: string) {
   return language === "english" || Boolean(NAME_LANGUAGE_CODES[language as keyof typeof NAME_LANGUAGE_CODES]);
 }
 
+/** The Name a link asked for, as `?name=17`, or null. */
+function requestedNameNumber(): number | null {
+  try {
+    const value = Number(new URLSearchParams(window.location.search).get("name"));
+    return Number.isInteger(value) && value >= 1 && value <= 99 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 export function NamesExplorer() {
   const [language, setLanguage] = useState<string | null>(null);
   const [activeLanguage, setActiveLanguage] = useState("english");
@@ -36,6 +46,7 @@ export function NamesExplorer() {
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [highlighted, setHighlighted] = useState<number | null>(null);
 
   // Reuse the same language preference as the Play experience. Unsupported
   // Names-provider languages fall back to English without changing the game's
@@ -97,6 +108,28 @@ export function NamesExplorer() {
       controller.abort();
     };
   }, [language]);
+
+  /*
+   * A Name named in the URL — a notification about Al-Wadud opens the page
+   * at Al-Wadud. The cards only exist once the Names have loaded, so the
+   * browser's own fragment scrolling cannot do this; the card is found after
+   * that load and brought into view, and held highlighted for a moment.
+   */
+  useEffect(() => {
+    if (!names.length) return;
+    const requested = requestedNameNumber();
+    if (requested === null) return;
+
+    setHighlighted(requested);
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(`name-${requested}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+    const timer = window.setTimeout(() => setHighlighted(null), 2400);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [names]);
 
   const visible = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
@@ -175,7 +208,11 @@ export function NamesExplorer() {
       ) : (
         <div className={`names-grid${loading ? " is-translating" : ""}`} aria-live="polite">
           {visible.map((item) => (
-            <article className="name-card" key={item.number}>
+            <article
+              className={`name-card${highlighted === item.number ? " is-highlighted" : ""}`}
+              id={`name-${item.number}`}
+              key={item.number}
+            >
               <span className="name-number">{String(item.number).padStart(2, "0")}</span>
               <p className="name-arabic" lang="ar" dir="rtl">{item.arabic}</p>
               <h3>{item.transliteration}</h3>

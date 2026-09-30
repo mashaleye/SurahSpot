@@ -54,9 +54,21 @@ export type StoredSubscription = {
   /** Local day of the reader's most recent reading, as YYYY-MM-DD. */
   lastReadDay?: string;
   streak?: number;
+  /**
+   * The Surah the reader last left off in. The recitation nudge names it and
+   * links back into it. The position within the Surah stays on the device.
+   */
+  lastReadChapterId?: number;
   createdAt: number;
   updatedAt: number;
 };
+
+/** A Surah number as the client reports it, or nothing. */
+export function sanitizeChapterId(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 114
+    ? value
+    : undefined;
+}
 
 /**
  * The id is derived from the endpoint rather than random, so a device that
@@ -107,6 +119,7 @@ export type SaveSubscriptionInput = {
   prefs?: unknown;
   lastReadDay?: string;
   streak?: number;
+  lastReadChapterId?: number;
 };
 
 /** Validates the shape a browser's PushSubscription serialises to. */
@@ -144,6 +157,7 @@ export async function saveSubscription(input: SaveSubscriptionInput): Promise<St
     lastSent: existing?.lastSent ?? {},
     lastReadDay: input.lastReadDay ?? existing?.lastReadDay,
     streak: input.streak ?? existing?.streak,
+    lastReadChapterId: input.lastReadChapterId ?? existing?.lastReadChapterId,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
@@ -160,7 +174,13 @@ export async function saveSubscription(input: SaveSubscriptionInput): Promise<St
  */
 export async function updateSubscriptionState(
   id: string,
-  patch: { lastReadDay?: string; streak?: number; prefs?: unknown; timeZone?: string },
+  patch: {
+    lastReadDay?: string;
+    streak?: number;
+    lastReadChapterId?: number;
+    prefs?: unknown;
+    timeZone?: string;
+  },
 ): Promise<StoredSubscription | null> {
   const store = getStore();
 
@@ -172,6 +192,7 @@ export async function updateSubscriptionState(
       ...existing,
       lastReadDay: patch.lastReadDay ?? existing.lastReadDay,
       streak: patch.streak ?? existing.streak,
+      lastReadChapterId: patch.lastReadChapterId ?? existing.lastReadChapterId,
       prefs: patch.prefs === undefined ? existing.prefs : sanitizePrefs(patch.prefs),
       timeZone: isValidTimeZone(patch.timeZone) ? patch.timeZone : existing.timeZone,
       updatedAt: Date.now(),

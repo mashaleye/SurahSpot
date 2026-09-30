@@ -816,19 +816,40 @@ export function LearningBlocksReader() {
 
   useEffect(() => {
     /*
-     * A Surah named in the URL, as `?surah=2`.
+     * A Surah named in the URL, as `?surah=2`, and optionally an Ayah in it,
+     * as `?surah=2&ayah=152`.
      *
      * Read before the stored state so a link can override it. Someone
      * arriving from a link to Al-Baqarah means to land in Al-Baqarah, not
      * wherever they happened to stop reading last week — but their saved
      * position *within* that Surah is still theirs, so the restore below
-     * still applies.
+     * still applies. An Ayah is different: like the navigator's Verse jump it
+     * is an explicit destination, so it wins over the saved position.
+     *
+     * Both are consumed and then removed from the address. A reminder opens
+     * the installed app at this URL, and the app can be reloaded from it
+     * hours later; without this the reload would jump back to that Ayah
+     * instead of resuming where the reader actually got to.
      */
     let requestedChapterId: number | null = null;
+    let requestedVerseNumber: number | null = null;
     try {
-      const requested = Number(new URLSearchParams(window.location.search).get("surah"));
+      const params = new URLSearchParams(window.location.search);
+      const requested = Number(params.get("surah"));
       if (Number.isInteger(requested) && requested >= 1 && requested <= 114) {
         requestedChapterId = requested;
+        const ayah = Number(params.get("ayah"));
+        if (Number.isInteger(ayah) && ayah >= 1) requestedVerseNumber = ayah;
+      }
+      if (params.has("surah") || params.has("ayah")) {
+        params.delete("surah");
+        params.delete("ayah");
+        const rest = params.toString();
+        window.history.replaceState(
+          window.history.state,
+          "",
+          `${window.location.pathname}${rest ? `?${rest}` : ""}${window.location.hash}`,
+        );
       }
     } catch {
       // No URL to read from; carry on with stored state.
@@ -922,6 +943,16 @@ export function LearningBlocksReader() {
         setScrollChapters([requestedChapterId]);
         setNavigatorChapterId(requestedChapterId);
         setRangeChapterId(requestedChapterId);
+
+        if (requestedVerseNumber !== null) {
+          // Skip the initial restore, exactly as navigateSurah does for an
+          // explicit target, and let the navigation-target effect scroll to
+          // the Ayah once the Surah has rendered.
+          initialReadingRestoreDoneRef.current = true;
+          pendingReadingRestoreRef.current = null;
+          restoringReadingPositionRef.current = false;
+          setNavigationTargetKey(verseKey(requestedChapterId, requestedVerseNumber));
+        }
       }
 
       hydrateLearningProgress();

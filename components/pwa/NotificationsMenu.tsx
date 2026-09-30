@@ -64,6 +64,14 @@ export function NotificationsMenu() {
     () => "",
   );
 
+  // The Surah number only: it changes when the reader moves to another
+  // Surah, not on every Ayah, so this stays a cheap subscription.
+  const lastReadChapterId = useSyncExternalStore(
+    subscribeLearningProgress,
+    () => getLearningProgressSnapshot().lastRead?.chapterId ?? 0,
+    () => 0,
+  );
+
   /*
    * Show the control only when it can actually do something: the browser
    * supports push (or is an iPhone that would once installed), and the server
@@ -135,7 +143,11 @@ export function NotificationsMenu() {
 
       {open ? (
         <div className="notif-menu-panel" ref={panelRef} role="dialog" aria-label="Reminders">
-          <NotificationSettings streak={streak} lastReadDay={lastReadDay || null} />
+          <NotificationSettings
+            streak={streak}
+            lastReadDay={lastReadDay || null}
+            lastReadChapterId={lastReadChapterId || null}
+          />
         </div>
       ) : null}
     </div>

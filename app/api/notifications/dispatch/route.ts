@@ -4,12 +4,18 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { pushConfig } from "@/lib/config/env";
 import { toErrorResponse, unavailable } from "@/lib/http/api-error";
+import { getNamesOfAllah } from "@/lib/content/names-of-allah";
 import {
-  QURANIC_DUAS,
+  PLAY_SUGGESTIONS,
   RECITATION_SUGGESTIONS,
   VERSE_OF_THE_DAY,
+  dhikrContent,
   duaContent,
+  duaSlotPick,
+  nameContent,
+  playContent,
   recitationContent,
+  resolveChapterName,
   resolveVerse,
   streakContent,
   verseContent,
@@ -17,7 +23,6 @@ import {
 } from "@/lib/notifications/content";
 import { sendPush } from "@/lib/notifications/push";
 import {
-  contentIndex,
   dailyContentIndex,
   dueNotifications,
   type DueNotification,
@@ -84,12 +89,14 @@ async function buildContent(
   }
 
   if (due.category === "recitation") {
+    // The Surah the reader left off in, if the device has reported one; the
+    // link resumes their saved place. Otherwise a suggestion from the rotation.
+    const lastRead = subscription.lastReadChapterId;
+    if (lastRead) return recitationContent(await resolveChapterName(lastRead), lastRead);
+
     const index = dailyContentIndex(due.localDay, RECITATION_SUGGESTIONS.length);
     const chapterId = RECITATION_SUGGESTIONS[index];
-    // Resolving the first Ayah is the cheapest way to get the Surah's name
-    // from the same catalog the reader sees, rather than a second hardcoded list.
-    const verse = await resolveVerse({ chapterId, verseNumber: 1 });
-    return recitationContent(verse.chapterName, chapterId);
+    return recitationContent(await resolveChapterName(chapterId), chapterId, true);
   }
 
   if (due.category === "verse") {
@@ -97,9 +104,23 @@ async function buildContent(
     return verseContent(await resolveVerse(VERSE_OF_THE_DAY[index]));
   }
 
-  // Duas step once per slot, so each four-hour window brings a different one.
-  const index = contentIndex(due.localDay, due.slotHour, QURANIC_DUAS.length);
-  return duaContent(await resolveVerse(QURANIC_DUAS[index]));
+  if (due.category === "play") {
+    const index = dailyContentIndex(due.localDay, PLAY_SUGGESTIONS.length);
+    return playContent(PLAY_SUGGESTIONS[index]);
+  }
+
+  // The dua slot takes turns: a Qur'anic dua, a dhikr, one of the 99 Names.
+  const pick = duaSlotPick(due.localDay, due.slotHour);
+  if (pick.kind === "dhikr") return dhikrContent(pick.dhikr);
+  if (pick.kind === "name") {
+    // Same daily-revalidated provider the Names page reads, so the wording in
+    // the tray matches the wording on the page it opens.
+    const { names } = await getNamesOfAllah("english");
+    const name = names.find((item) => item.number === pick.number);
+    if (!name) return null;
+    return nameContent(name);
+  }
+  return duaContent(await resolveVerse(pick.ref));
 }
 
 type RunSummary = {
@@ -119,12 +140,23 @@ async function dispatchOne(id: string, nowMs: number, summary: RunSummary): Prom
     return;
   }
 
-  const due = dueNotifications(subscription, nowMs);
+  const due = orderForDelivery(dueNotifications(subscription, nowMs));
   if (!due.length) {
     summary.skipped += 1;
     return;
   }
 
+  /*
+   * One notification per subscriber per run, never a pair.
+   *
+   * A push service holds a message for a phone that is asleep or offline,
+   * and Apple's keeps only one per app: when two arrive close together, the
+   * later one takes the earlier one's place. On a device that got both the
+   * morning dua and the verse of the day at 08:17, only the verse was ever
+   * shown. Since the dispatcher runs hourly and a slot lasts four hours, what
+   * is not sent now is still due next run, an hour apart — which is also a
+   * better rhythm than two at once.
+   */
   const delivered: NotificationCategory[] = [];
   let slotKey = "";
 
@@ -155,6 +187,7 @@ async function dispatchOne(id: string, nowMs: number, summary: RunSummary): Prom
     if (outcome.status === "sent") {
       delivered.push(item.category);
       summary.sent += 1;
+      break;
     } else if (outcome.status === "expired") {
       // The device is gone. Stop here: the rest of this subscriber's
       // notifications would fail the same way.
@@ -167,6 +200,16 @@ async function dispatchOne(id: string, nowMs: number, summary: RunSummary): Prom
   }
 
   if (delivered.length && slotKey) await markDelivered(id, delivered, slotKey);
+}
+
+/**
+ * The once-a-day kinds go first, and the remembrance last: it comes round
+ * every slot anyway, whereas the verse of the day has one slot to land in.
+ * With at most one send per run, this decides which of two due items waits an
+ * hour.
+ */
+function orderForDelivery(due: DueNotification[]): DueNotification[] {
+  return [...due].sort((a, b) => Number(a.category === "dua") - Number(b.category === "dua"));
 }
 
 /**

@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  DEFAULT_NOTIFICATION_PREFS,
   NOTIFICATION_CATEGORIES,
   type NotificationCategory,
   type NotificationPrefs,
@@ -27,16 +28,20 @@ import {
 
 const CATEGORY_COPY: Record<NotificationCategory, { label: string; hint: string }> = {
   dua: {
-    label: "Duas",
-    hint: "A Qur'anic supplication every four hours.",
+    label: "Remembrance",
+    hint: "A Qur'anic dua, a dhikr or one of the 99 Names, every four hours through the day.",
   },
   verse: {
     label: "Verse of the day",
     hint: "One Ayah each morning, with its translation.",
   },
   recitation: {
-    label: "Recitation",
-    hint: "An afternoon nudge to listen to a Surah.",
+    label: "Reconnect",
+    hint: "An afternoon nudge back to the Surah you left off in.",
+  },
+  play: {
+    label: "Game modes",
+    hint: "One mode to try each midday, taking turns through all of them.",
   },
   streak: {
     label: "Streak reminder",
@@ -49,15 +54,15 @@ type Phase = "loading" | "ready" | "working";
 export function NotificationSettings({
   streak,
   lastReadDay,
+  lastReadChapterId,
 }: {
   streak: number;
   lastReadDay: string | null;
+  lastReadChapterId: number | null;
 }) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [status, setStatus] = useState<NotificationStatus | null>(null);
-  const [prefs, setPrefs] = useState<NotificationPrefs>(() => ({
-    dua: true, verse: true, recitation: true, streak: true,
-  }));
+  const [prefs, setPrefs] = useState<NotificationPrefs>(() => ({ ...DEFAULT_NOTIFICATION_PREFS }));
   const [message, setMessage] = useState("");
 
   const mountedRef = useRef(true);
@@ -83,6 +88,7 @@ export function NotificationSettings({
     const result = await enableNotifications(prefs, {
       streak,
       lastReadDay: lastReadDay ?? undefined,
+      lastReadChapterId: lastReadChapterId ?? undefined,
     });
 
     if (!mountedRef.current) return;
@@ -106,7 +112,7 @@ export function NotificationSettings({
     }
 
     if (mountedRef.current) setPhase("ready");
-  }, [lastReadDay, prefs, streak]);
+  }, [lastReadChapterId, lastReadDay, prefs, streak]);
 
   const disable = useCallback(async () => {
     setPhase("working");

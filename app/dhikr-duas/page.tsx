@@ -16,6 +16,8 @@ type RoutineSource = {
 };
 
 type Routine = {
+  /** Anchor for the card, so a reminder can open the page at its routine. */
+  id: string;
   title: string;
   copy: string;
   sources: readonly RoutineSource[];
@@ -23,6 +25,7 @@ type Routine = {
 
 const ROUTINES: readonly Routine[] = [
   {
+    id: "morning-evening",
     title: "Morning & evening",
     copy:
       "Build a consistent start and close to the day with a small, repeatable set.",
@@ -35,6 +38,7 @@ const ROUTINES: readonly Routine[] = [
   },
 
   {
+    id: "after-salah",
     title: "After salah",
     copy:
       "Keep post-prayer remembrance separate so it can become a dependable routine.",
@@ -47,6 +51,7 @@ const ROUTINES: readonly Routine[] = [
   },
 
   {
+    id: "sleep-waking",
     title: "Sleep & waking",
     copy:
       "Group the duas around the moments you already repeat every day.",
@@ -63,6 +68,7 @@ const ROUTINES: readonly Routine[] = [
   },
 
   {
+    id: "travel-leaving-home",
     title: "Travel & leaving home",
     copy:
       "Keep situational duas easy to find before you need them.",
@@ -79,6 +85,7 @@ const ROUTINES: readonly Routine[] = [
   },
 
   {
+    id: "gratitude-seeking-help",
     title: "Gratitude & seeking help",
     copy:
       "Return to remembrance with attention to gratitude, reliance, and asking Allah for ease.",
@@ -95,6 +102,7 @@ const ROUTINES: readonly Routine[] = [
   },
 
   {
+    id: "quranic-duas",
     title: "Qur’anic duas",
     copy:
       "Study supplications found in the Qur’an alongside their verses, meanings, and themes.",
@@ -136,7 +144,8 @@ export default function DhikrDuasPage() {
           {ROUTINES.map((routine, index) => (
             <article
               className="resource-card dhikr-resource-card"
-              key={routine.title}
+              id={routine.id}
+              key={routine.id}
             >
               <div className="resource-card-content">
                 <span className="resource-card-number">

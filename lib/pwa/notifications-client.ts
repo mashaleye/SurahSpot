@@ -12,6 +12,7 @@
 
 import {
   DEFAULT_NOTIFICATION_PREFS,
+  NOTIFICATION_CATEGORIES,
   type NotificationPrefs,
 } from "@/lib/notifications/schedule";
 
@@ -35,12 +36,12 @@ export function readStoredPrefs(): NotificationPrefs {
     const raw = localStorage.getItem(PREFS_STORAGE_KEY);
     if (!raw) return { ...DEFAULT_NOTIFICATION_PREFS };
     const parsed = JSON.parse(raw) as Partial<NotificationPrefs>;
-    return {
-      dua: parsed.dua !== false,
-      verse: parsed.verse !== false,
-      recitation: parsed.recitation !== false,
-      streak: parsed.streak !== false,
-    };
+    // Only an explicit false switches a kind off, so a category added after
+    // the reader last saved their preferences starts on, like the rest.
+    return NOTIFICATION_CATEGORIES.reduce((prefs, category) => {
+      prefs[category] = parsed[category] !== false;
+      return prefs;
+    }, {} as NotificationPrefs);
   } catch {
     return { ...DEFAULT_NOTIFICATION_PREFS };
   }
@@ -138,7 +139,7 @@ export type EnableResult =
  */
 export async function enableNotifications(
   prefs: NotificationPrefs,
-  state: { lastReadDay?: string; streak?: number } = {},
+  state: { lastReadDay?: string; streak?: number; lastReadChapterId?: number } = {},
 ): Promise<EnableResult> {
   const support = detectSupport();
   if (support === "needs-install") return { ok: false, reason: "needs-install" };
@@ -203,15 +204,21 @@ export async function disableNotifications(): Promise<void> {
 }
 
 /**
- * Push the reader's current streak state to their subscription.
+ * Push the reader's current reading state to their subscription.
  *
- * The streak reminder is the one notification that depends on what happened
- * on the device, and reading progress never leaves it. Sending just the day
- * and the count keeps that reminder honest without shipping reading history
- * anywhere.
+ * Two notifications depend on what happened on the device: the streak
+ * reminder needs the last day read and the count, and the afternoon nudge
+ * names the Surah the reader left off in. Reading history itself never
+ * leaves the device — the position within that Surah stays here, and the
+ * link in the nudge resumes it locally.
  */
 export async function syncNotificationState(
-  state: { lastReadDay?: string; streak?: number; prefs?: NotificationPrefs },
+  state: {
+    lastReadDay?: string;
+    streak?: number;
+    lastReadChapterId?: number;
+    prefs?: NotificationPrefs;
+  },
 ): Promise<void> {
   try {
     if (detectSupport() !== "supported") return;

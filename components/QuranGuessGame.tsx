@@ -9,7 +9,7 @@ import { AyahCountBoard, type AyahSurahDisplay } from "./AyahCountBoard";
 import { CompletionBoard, type CompletionFeedback, type CompletionRoundData } from "./CompletionBoard";
 import { ResultShareActions } from "./share/ResultShareActions";
 import { VerseShareActions } from "./share/VerseShareActions";
-import { DEFAULT_MODE_ID, getMode, getVariant, type ModeId } from "@/lib/game/modes";
+import { DEFAULT_MODE_ID, getMode, getVariant, isModeId, type ModeId } from "@/lib/game/modes";
 import { useMediaSession } from "@/lib/pwa/media-session";
 import {
   EMPTY_KARAOKE,
@@ -488,12 +488,23 @@ export function QuranGuessGame() {
 
     const urlParams = new URLSearchParams(window.location.search);
     const challengeRequested = urlParams.get("challenge") === "1";
-    const preferredMode = challengeRequested
+    /*
+     * A mode named in the URL on its own, as `/?mode=completion&variant=sequence`,
+     * is how a reminder opens the game. It means "play these rules": an
+     * attempt already under way under them simply continues, one under
+     * different rules is replaced, and a finished one gives way to a fresh
+     * one — the same as choosing the mode from the Modes menu, except that a
+     * same-rules attempt in progress is kept rather than restarted.
+     */
+    const modeRequested = !challengeRequested && isModeId(urlParams.get("mode"));
+    const preferredMode = challengeRequested || modeRequested
       ? getMode(urlParams.get("mode"))
       : getMode(localStorage.getItem(MODE_STORAGE_KEY));
     const preferredVariant = getVariant(
       preferredMode,
-      challengeRequested ? urlParams.get("variant") : localStorage.getItem(VARIANT_STORAGE_KEY),
+      challengeRequested || modeRequested
+        ? urlParams.get("variant")
+        : localStorage.getItem(VARIANT_STORAGE_KEY),
     )?.id;
     const storedMode = preferredMode;
     const storedVariant = preferredVariant;
@@ -538,25 +549,50 @@ export function QuranGuessGame() {
           // contain a preference from a previous attempt.
           const activeMode = getMode(data.attempt?.mode ?? storedMode.id);
           const activeVariant = getVariant(activeMode, data.attempt?.variant ?? storedVariant)?.id;
-          setModeId(activeMode.id);
-          setVariantId(activeVariant);
-          if (data.attempt) reconcileProgress(data.attempt);
-
           const isComplete = data.attempt?.complete ?? alreadyComplete;
-          setAttemptComplete(isComplete);
-          setSummaryOpen(isComplete);
-          if (!isComplete) {
+          const rulesDiffer = activeMode.id !== storedMode.id || activeVariant !== storedVariant;
+
+          if (modeRequested && (rulesDiffer || isComplete)) {
+            // The requested rules are not what is in play: start fresh under
+            // them. A live attempt under other rules needs the same explicit
+            // reset a Modes-menu switch sends; a finished one needs none.
+            persistStats({ ...EMPTY_STATS });
+            persistUsedChapterIds([]);
+            setAttemptComplete(false);
+            setSummaryOpen(false);
+            setModeId(storedMode.id);
+            setVariantId(storedVariant);
             await newRound(
               storedLanguage,
               reciterId,
-              initialUsedChapterIds,
-              false,
-              activeMode.id,
-              activeVariant,
+              [],
+              true,
+              storedMode.id,
+              storedVariant,
+              rulesDiffer && !isComplete ? "mode-switch" : undefined,
             );
           } else {
-            setLoading(false);
+            setModeId(activeMode.id);
+            setVariantId(activeVariant);
+            if (data.attempt) reconcileProgress(data.attempt);
+            setAttemptComplete(isComplete);
+            setSummaryOpen(isComplete);
+            if (!isComplete) {
+              await newRound(
+                storedLanguage,
+                reciterId,
+                initialUsedChapterIds,
+                false,
+                activeMode.id,
+                activeVariant,
+              );
+            } else {
+              setLoading(false);
+            }
           }
+
+          // Consumed: a reload should resume the attempt, not re-apply the link.
+          if (modeRequested) window.history.replaceState({}, "", "/");
         }
       } catch (error) {
         setSetupError(error instanceof Error ? error.message : "Could not load the app.");
